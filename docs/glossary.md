@@ -69,7 +69,7 @@ Markdown ファイル冒頭の `---` で囲まれた部分。`title` `type` `sou
 
 ```yaml
 ---
-title: TermLens アーキテクチャ
+title: TaskFlow アーキテクチャ
 type: concept
 confidence: high
 ---

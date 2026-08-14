@@ -60,7 +60,7 @@ updated: YYYY-MM-DD
 
 - ケバブケース、`<project>-<topic>.md`（例: `<project>-architecture.md`）
 - **プロジェクト prefix を必ず付ける**。`architecture.md` のような汎用名は mounts 集約時に衝突する
-- `knowledge/` 配下は prefix 不要（例: `deepgram-streaming-ja.md`）
+- `knowledge/` 配下は prefix 不要（例: `stripe-webhooks.md`）
 
 ### 本文
 

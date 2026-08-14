@@ -36,7 +36,7 @@ description: LLM Wiki（Karpathy パターン）の ingest / query / lint を実
 
 1. `~/wiki/index.md` → 対象プロジェクトの `docs/wiki/index.md` の順に読む
 2. 関連ページを読んで回答を組み立てる。**生ソース（`raw/`）は最後の手段**
-3. **回答には必ずページ名を引用する**（`termlens-open-issues.md より` の形式）
+3. **回答には必ずページ名を引用する**（`taskflow-open-issues.md より` の形式）
 4. Wiki に答えがなければ「Wiki に無い」と明言してから調べる
 5. 調べた結果に再利用価値があれば、新しいページとして書き戻すか提案する
 

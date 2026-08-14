@@ -13,14 +13,14 @@
 ├── index.md                         全ページの1行カタログ
 ├── log.md                           操作ログ（追記のみ）
 ├── knowledge/                       横断知識
-│   ├── deepgram-streaming-ja.md
+│   ├── stripe-webhooks.md
 │   └── fly-io-deployment.md
 ├── projects/
-│   └── termlens.md                  プロジェクトのハブページ
+│   └── taskflow.md                  プロジェクトのハブページ
 └── mounts/
-    └── termlens ──────────┐         symlink
+    └── taskflow ──────────┐         symlink
                            │
-~/development/TermLens/    │
+~/development/TaskFlow/    │
 ├── CLAUDE.md              │         @~/wiki/SCHEMA.md を参照
 └── docs/                  │
     ├── raw/               │         生の資料（書き換えない）
@@ -28,7 +28,7 @@
     └── wiki/  ←───────────┘         AI が維持するページ
         ├── index.md
         ├── log.md
-        └── termlens-*.md
+        └── taskflow-*.md
 ```
 
 ---
@@ -49,7 +49,7 @@
 **同じ知見が2プロジェクト以上で出てきたら `~/wiki/knowledge/` へ移し**、各プロジェクトからはリンクで参照します。重複を放置すると、どちらが最新か分からなくなります。
 
 > **実例**
-> 「Fly.io はカード未登録だとマシンが5分で強制停止される」はTermLens 固有ではないので `knowledge/fly-io-deployment.md` に昇格させ、TermLens 側からはリンクを張りました。
+> 「Fly.io はカード未登録だとマシンが5分で強制停止される」は TaskFlow 固有ではないので `knowledge/fly-io-deployment.md` に昇格させ、TaskFlow 側からはリンクを張りました。
 
 ### symlink の役割
 
@@ -90,14 +90,14 @@
 
 ```yaml
 ---
-title: TermLens アーキテクチャ
+title: TaskFlow アーキテクチャ
 type: concept
-project: termlens
+project: taskflow
 scope: shared
 sources:
   - README.md
   - docs/raw/2026-08-13-fly-deploy.md
-related: [[termlens-stt-pipeline]], [[termlens-open-issues]]
+related: [[taskflow-sync-engine]], [[taskflow-open-issues]]
 confidence: high
 updated: 2026-08-14
 ---
@@ -132,9 +132,9 @@ updated: 2026-08-14
 ### 命名規則
 
 - ケバブケース（小文字とハイフン）
-- **`<project>-<topic>.md`** の形にする → 例: `termlens-architecture.md`
+- **`<project>-<topic>.md`** の形にする → 例: `taskflow-architecture.md`
 - **プロジェクト名の接頭辞は必須**。`architecture.md` のような汎用名は、mounts で集約したときに衝突する
-- `knowledge/` 配下は接頭辞不要 → 例: `deepgram-streaming-ja.md`
+- `knowledge/` 配下は接頭辞不要 → 例: `stripe-webhooks.md`
 
 ### 本文
 

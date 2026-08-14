@@ -17,7 +17,7 @@
 
 ```
 09:30  /llm-wiki query 今の状況と次にやることは？
-       → 「話者分離の検証が未着手。優先度2はスケジューラのエラー分類」
+       → 「オフライン同期の競合解決が未着手。優先度2はリトライ処理のエラー分類」
 
 09:35  コードを書く（Wiki は触らない）
 
@@ -40,7 +40,7 @@ Wiki を意識するのは**朝と夕方の数分だけ**です。作業中は�
 
 ```
 /llm-wiki query 今の状況と次にやることは？
-/llm-wiki query 話者分離が効かないのはなぜ？
+/llm-wiki query オフライン同期が競合するのはなぜ？
 /llm-wiki query デプロイ手順を教えて
 ```
 
@@ -50,9 +50,9 @@ Wiki を意識するのは**朝と夕方の数分だけ**です。作業中は�
 
 **回答にページ名の引用があること。**
 
-> 良い例:「`termlens-open-issues.md` によると、優先度1は複数話者での分離精度の検証です」
+> 良い例:「`taskflow-open-issues.md` によると、優先度1は複数端末での競合解決の検証です」
 >
-> 悪い例:「話者分離の検証が残っているようです」← Wiki を読んでいない可能性
+> 悪い例:「オフライン同期の検証が残っているようです」← Wiki を読んでいない可能性
 
 引用が無ければ「`index.md` から読んで」と指示し直してください。
 
@@ -68,7 +68,7 @@ Wiki を意識するのは**朝と夕方の数分だけ**です。作業中は�
 
 ```
 /llm-wiki ingest 今日の作業内容
-/llm-wiki ingest docs/raw/2026-08-14-deepgram-docs.md
+/llm-wiki ingest docs/raw/2026-08-14-stripe-docs.md
 /llm-wiki ingest https://example.com/article
 ```
 
@@ -117,7 +117,7 @@ git diff docs/wiki
 指摘はその場で口頭で構いません。
 
 ```
-termlens-deployment.md の話者分離の記述、実機未確認だから confidence: low にして
+taskflow-deployment.md のオフライン同期の記述、実機未確認だから confidence: low にして
 ```
 
 ---
@@ -131,7 +131,7 @@ termlens-deployment.md の話者分離の記述、実機未確認だから confi
 週1回、曜日を決めて回します。**検出結果を報告するだけで、勝手には直しません。**直すものを人間が選びます。
 
 ```
-矛盾1と3を直して。リンク切れは termlens-session-recovery だけ書いて
+矛盾1と3を直して。リンク切れは taskflow-session-recovery だけ書いて
 ```
 
 これも [4. レビューと lint](04-review-and-lint.md) で詳しく説明します。
