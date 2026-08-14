@@ -81,6 +81,8 @@ cd C:\path\to\your-project
 | `.gitignore` | `docs/raw/*` を追加（`README.md` のみ追跡） |
 | `.githooks/pre-commit` | 秘密情報の検査フックを配置し、`core.hooksPath` を設定 |
 
+> このリポジトリ自身を接続した場合だけ、フックは複製されません。`githooks/` が実体なので `core.hooksPath` はそちらを指します（同じファイルを2箇所で保守しないため）。
+
 そのあと Claude Code で:
 
 ```
