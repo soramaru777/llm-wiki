@@ -1,4 +1,4 @@
-# SessionStart フック（Windows / PowerShell）
+﻿# SessionStart フック（Windows / PowerShell）
 # プロジェクトに LLM Wiki があれば index.md をコンテキストへ注入する。
 # docs/wiki/index.md が無いプロジェクトでは何も出力せず終了する。
 
