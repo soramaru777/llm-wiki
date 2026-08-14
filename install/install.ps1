@@ -1,4 +1,4 @@
-# LLM Wiki セットアップ（Windows / PowerShell）
+﻿# LLM Wiki セットアップ（Windows / PowerShell）
 #
 #   .\install\install.ps1              vault とスキル・ルール・フックを配置
 #   .\install\install.ps1 -Connect .   カレントのプロジェクトを接続
