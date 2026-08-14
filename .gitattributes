@@ -1,0 +1,16 @@
+# 既定は LF。Windows でチェックアウトしても bash スクリプトが壊れないようにする
+* text=auto eol=lf
+
+# シェルスクリプトは必ず LF（CRLF だと bash が起動に失敗する）
+*.sh text eol=lf
+
+# PowerShell / バッチは CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# バイナリ
+*.png binary
+*.jpg binary
+*.gif binary
+*.pdf binary

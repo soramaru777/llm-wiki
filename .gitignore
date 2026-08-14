@@ -1,0 +1,8 @@
+.DS_Store
+Thumbs.db
+*.bak
+
+# 動作確認用に vault やプロジェクトをこのリポジトリ内に作った場合の保険。
+# 本来 Wiki の中身は ~/wiki と各プロジェクトの docs/wiki/ に置かれ、ここには入らない。
+/wiki/
+/raw/
