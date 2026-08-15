@@ -166,6 +166,14 @@ git config core.hooksPath .githooks
 
 生成される `CLAUDE.md` にこの手順が書かれるので、Claude Code が読んで案内してくれます。
 
+> **llm-wiki リポジトリ自身を clone した場合は `githooks`（ドットなし）です。**
+>
+> ```sh
+> git config core.hooksPath githooks
+> ```
+>
+> ここはフックの配布元で `githooks/pre-commit` が実体のため、`--connect` は `.githooks/` へ複製せず元のディレクトリを直接指します。同じファイルを2箇所で保守しないためです。接続先のプロジェクトでは上記のとおり `.githooks` になります。
+
 ---
 
 ## Windows
