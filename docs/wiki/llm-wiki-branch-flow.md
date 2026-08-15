@@ -7,7 +7,7 @@ sources:
   - https://github.com/soramaru777/llm-wiki/rules/20855265
   - https://github.com/soramaru777/llm-wiki/pull/1
   - https://github.com/soramaru777/llm-wiki/pull/2
-related: [[llm-wiki-powershell-encoding]]
+related: [[llm-wiki-powershell-encoding]] [[llm-wiki-history-rewrite]] [[llm-wiki-secret-hygiene]]
 confidence: high
 updated: 2026-08-15
 ---
@@ -41,7 +41,7 @@ bypass 対象者は設定していない（`current_user_can_bypass: "never"`）
 
 必要承認数を 0 にしているのは、1人リポジトリで1件以上を必須にすると自分の PR を自分で承認できずマージ不能になるため。「PR を作らないと入らない」制約は 0 でも効く。レビュアーが増えたら引き上げる。
 
-タグの push は branch ruleset の対象外なので、保護下でもそのまま実行できる。
+タグの push は branch ruleset の対象外なので、保護下でもそのまま実行できる。ただしタグを**貼り直す**場合は、指す先のコミットが履歴書き換えで変わっているケースが多い。その手順は [[llm-wiki-history-rewrite]] にまとめてある。
 
 ## タグ
 
@@ -72,3 +72,6 @@ git switch main && git pull
 ## 経緯
 
 - v0.1.0（2026-08-14）— 初回リリース。[[llm-wiki-powershell-encoding]] の修正を含む。修正前の `main` は Windows で `install.ps1` が動かない状態だったため、修正を `main` に入れてから最初のタグを打った
+- v0.2.0（2026-08-15）— [[llm-wiki-secret-hygiene]]（生資料の非追跡と pre-commit 検査）、[[llm-wiki-hook-distribution]]（自己接続時はフックを複製しない）、`docs/wiki` の開設。`install` の挙動が追加・変更されたため PATCH ではなく MINOR
+
+> 2026-08-15 更新: v0.1.0 のタグは同日の履歴書き換え（[[llm-wiki-history-rewrite]]）により指す先のコミットが変わっている。内容は同一。
