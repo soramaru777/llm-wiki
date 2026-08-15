@@ -49,6 +49,13 @@ if ($Connect) {
   $isGit = $false
   try { git -C $ProjDir rev-parse --git-dir *> $null; $isGit = ($LASTEXITCODE -eq 0) } catch { $isGit = $false }
 
+  # 配布元リポジトリ自身を接続した場合、githooks\ が実体なので複製しない。
+  # 複製すると同じフックを2箇所で保守することになり、片方だけ古くなる。
+  $repoPath = [System.IO.Path]::GetFullPath($Repo).TrimEnd('\')
+  $projPath = [System.IO.Path]::GetFullPath($ProjDir).TrimEnd('\')
+  $isSelf   = ($projPath -eq $repoPath)
+  $hooksDir = if ($isSelf) { 'githooks' } else { '.githooks' }
+
   if ($isGit) {
     # 生資料は追跡しない。鍵や個人情報が混ざりやすく、履歴からは消せないため。
     $ignorePath = Join-Path $ProjDir '.gitignore'
@@ -71,19 +78,23 @@ docs/raw/*
 
     # 秘密情報の pre-commit 検査
     # フックは bash スクリプトだが、Git for Windows に bash が同梱されるため動作する
-    New-Item -ItemType Directory -Force -Path "$ProjDir\.githooks" | Out-Null
-    Copy-Item "$Repo\githooks\pre-commit" "$ProjDir\.githooks\pre-commit" -Force
+    if ($isSelf) {
+      Write-Info "配布元リポジトリ自身のため githooks\ をそのまま使います（複製しません）"
+    } else {
+      New-Item -ItemType Directory -Force -Path "$ProjDir\.githooks" | Out-Null
+      Copy-Item "$Repo\githooks\pre-commit" "$ProjDir\.githooks\pre-commit" -Force
+    }
 
     $currentHooks = (git -C $ProjDir config --local core.hooksPath 2>$null)
     if ([string]::IsNullOrEmpty($currentHooks)) {
-      git -C $ProjDir config --local core.hooksPath .githooks
-      Write-Ok "pre-commit フックを有効化しました（core.hooksPath = .githooks）"
-    } elseif ($currentHooks -eq '.githooks') {
+      git -C $ProjDir config --local core.hooksPath $hooksDir
+      Write-Ok "pre-commit フックを有効化しました（core.hooksPath = $hooksDir）"
+    } elseif ($currentHooks -eq $hooksDir) {
       Write-Info "pre-commit フックは既に有効です"
     } else {
       Write-Warn "core.hooksPath が既に '$currentHooks' に設定されています"
-      Write-Info "  .githooks\pre-commit は配置済みです。既存の設定を壊さないため自動では切り替えません"
-      Write-Info "  有効化する場合: git -C `"$ProjDir`" config core.hooksPath .githooks"
+      Write-Info "  $hooksDir\pre-commit は配置済みです。既存の設定を壊さないため自動では切り替えません"
+      Write-Info "  有効化する場合: git -C `"$ProjDir`" config core.hooksPath $hooksDir"
     }
   } else {
     Write-Warn "git リポジトリではないため、.gitignore とフックの設定はスキップしました"
@@ -92,7 +103,7 @@ docs/raw/*
   Write-Host ""
   Write-Info "次の手順:"
   Write-Info "  1. Claude Code で /llm-wiki ingest README.md"
-  Write-Info "  2. git add .gitignore .githooks docs/wiki docs/raw/README.md CLAUDE.md"
+  Write-Info "  2. git add .gitignore $hooksDir docs/wiki docs/raw/README.md CLAUDE.md"
   Write-Info "  3. git commit -m `"LLM Wiki を導入`""
   exit 0
 }
