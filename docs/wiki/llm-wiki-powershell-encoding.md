@@ -8,7 +8,7 @@ sources:
   - hooks/llm-wiki-context.ps1
   - https://github.com/soramaru777/llm-wiki/pull/1
   - https://github.com/soramaru777/llm-wiki/pull/2
-related: [[llm-wiki-branch-flow]]
+related: [[llm-wiki-branch-flow]] [[llm-wiki-hook-distribution]]
 confidence: high
 updated: 2026-08-15
 ---
@@ -58,7 +58,7 @@ efbbbf
 
 ## 適用範囲
 
-`hooks/llm-wiki-context.ps1` も対象。このファイルは `settings.json` の SessionStart フックに `shell: 'powershell'` で登録されるため、BOM が無いと**セッション開始のたびに同じパースエラーが出る**。install が配布する `.ps1` は例外なく BOM 付きにする。
+`hooks/llm-wiki-context.ps1` も対象。このファイルは `settings.json` の SessionStart フックに `shell: 'powershell'` で登録されるため、BOM が無いと**セッション開始のたびに同じパースエラーが出る**。install が配布する `.ps1` は例外なく BOM 付きにする。フックの種類と配布方法は [[llm-wiki-hook-distribution]] を参照。
 
 `.md` や `.json` に BOM は不要。付けるのは `.ps1` だけ。
 
@@ -73,3 +73,5 @@ efbbbf
 
 - 英語環境（CP1252）での挙動。理屈の上では同じ現象が起きるが、実機では確認していない
 - `install.ps1` が `Set-Content -Encoding UTF8` で生成する `CLAUDE.md` には BOM が付く（5.1 の場合）。7 では付かない。生成物の BOM 有無が実行環境で変わる点は未整理
+
+  > 2026-08-15 更新: このリポジトリが追跡している `CLAUDE.md` からは BOM を除去した（`.md` に BOM は不要で、他の `.md` と不揃いになるため）。ただし **`install.ps1` の生成処理は直していない**ので、5.1 で接続したプロジェクトの `CLAUDE.md` には引き続き BOM が付く。
