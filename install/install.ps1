@@ -34,6 +34,9 @@ if ($Connect) {
   # symlink ではなくジャンクションを使う（管理者権限も開発者モードも不要）
   New-Item -ItemType Junction -Path $mount -Target "$ProjDir\docs\wiki" | Out-Null
 
+  if (-not (Test-Path "$ProjDir\docs\raw\README.md")) {
+    Copy-Item "$Repo\template\raw-README.md" "$ProjDir\docs\raw\README.md"
+  }
   if (-not (Test-Path "$ProjDir\CLAUDE.md")) {
     (Get-Content "$Repo\template\CLAUDE.md.example" -Raw -Encoding UTF8).Replace('<PROJECT>', $ProjName) |
       Set-Content "$ProjDir\CLAUDE.md" -Encoding UTF8
@@ -41,10 +44,67 @@ if ($Connect) {
 
   Write-Ok "$ProjName を接続しました"
   Write-Info "docs\raw\ と docs\wiki\ を作成し、$mount から繋ぎました（ジャンクション）"
+
+  # --- git リポジトリなら安全策も入れる ---------------------------------
+  $isGit = $false
+  try { git -C $ProjDir rev-parse --git-dir *> $null; $isGit = ($LASTEXITCODE -eq 0) } catch { $isGit = $false }
+
+  # 配布元リポジトリ自身を接続した場合、githooks\ が実体なので複製しない。
+  # 複製すると同じフックを2箇所で保守することになり、片方だけ古くなる。
+  $repoPath = [System.IO.Path]::GetFullPath($Repo).TrimEnd('\')
+  $projPath = [System.IO.Path]::GetFullPath($ProjDir).TrimEnd('\')
+  $isSelf   = ($projPath -eq $repoPath)
+  $hooksDir = if ($isSelf) { 'githooks' } else { '.githooks' }
+
+  if ($isGit) {
+    # 生資料は追跡しない。鍵や個人情報が混ざりやすく、履歴からは消せないため。
+    $ignorePath = Join-Path $ProjDir '.gitignore'
+    $ignoreText = if (Test-Path $ignorePath) { Get-Content $ignorePath -Raw -Encoding UTF8 } else { '' }
+
+    if ($ignoreText -notmatch [regex]::Escape('docs/raw/*')) {
+      $block = @'
+
+# 生資料は追跡しない。加工前のセッション記録・議事録には API キーや個人情報が
+# 混ざりやすく、一度コミットすると履歴から消せないため。
+# 置き場のルール(README)だけ共有し、中身はローカルに留める。
+docs/raw/*
+!docs/raw/README.md
+'@
+      Add-Content -Path $ignorePath -Value $block -Encoding UTF8
+      Write-Ok "docs/raw/ を .gitignore に追加しました（README のみ追跡）"
+    } else {
+      Write-Info "docs/raw/ は既に .gitignore 済みです"
+    }
+
+    # 秘密情報の pre-commit 検査
+    # フックは bash スクリプトだが、Git for Windows に bash が同梱されるため動作する
+    if ($isSelf) {
+      Write-Info "配布元リポジトリ自身のため githooks\ をそのまま使います（複製しません）"
+    } else {
+      New-Item -ItemType Directory -Force -Path "$ProjDir\.githooks" | Out-Null
+      Copy-Item "$Repo\githooks\pre-commit" "$ProjDir\.githooks\pre-commit" -Force
+    }
+
+    $currentHooks = (git -C $ProjDir config --local core.hooksPath 2>$null)
+    if ([string]::IsNullOrEmpty($currentHooks)) {
+      git -C $ProjDir config --local core.hooksPath $hooksDir
+      Write-Ok "pre-commit フックを有効化しました（core.hooksPath = $hooksDir）"
+    } elseif ($currentHooks -eq $hooksDir) {
+      Write-Info "pre-commit フックは既に有効です"
+    } else {
+      Write-Warn "core.hooksPath が既に '$currentHooks' に設定されています"
+      Write-Info "  $hooksDir\pre-commit は配置済みです。既存の設定を壊さないため自動では切り替えません"
+      Write-Info "  有効化する場合: git -C `"$ProjDir`" config core.hooksPath $hooksDir"
+    }
+  } else {
+    Write-Warn "git リポジトリではないため、.gitignore とフックの設定はスキップしました"
+  }
+
   Write-Host ""
   Write-Info "次の手順:"
   Write-Info "  1. Claude Code で /llm-wiki ingest README.md"
-  Write-Info "  2. git add docs CLAUDE.md; git commit -m `"LLM Wiki を導入`""
+  Write-Info "  2. git add .gitignore $hooksDir docs/wiki docs/raw/README.md CLAUDE.md"
+  Write-Info "  3. git commit -m `"LLM Wiki を導入`""
   exit 0
 }
 

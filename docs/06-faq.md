@@ -116,6 +116,58 @@ lint は GitHub Actions の週次 cron に載せ、検出結果を Issue にす�
 
 ---
 
+## git と公開範囲
+
+### `docs/wiki/` と `docs/raw/` は git にコミットすべきですか？
+
+**wiki は追跡し、raw は追跡しません。**インストーラの `--connect` がこの設定を自動で入れます。
+
+| | 追跡 | 理由 |
+|---|---|---|
+| `docs/wiki/` | **する** | 差分レビュー（`git diff docs/wiki`）が運用の要。LLM が要約するため機密が入りにくい |
+| `docs/raw/` | **しない**（README のみ） | 加工前の生資料。キーや個人情報が混ざりやすく、履歴から消せない |
+
+### 「追跡する」と「公開する」は違うのでは？
+
+その通りです。**private リポジトリなら追跡しても外には出ません。**
+
+ただし raw を追跡しない方針を勧めるのは、**public にするかどうかを後から決められるようにするため**です。一度コミットしたものは `git rm` しても履歴に残り、`git filter-repo` + force push + キー再発行が必要になります。「後から消せる」前提で設計しないでください。
+
+### すでに raw をコミットしてしまいました
+
+まず**キーが含まれているかを確認**してください。
+
+```sh
+git grep -niE 'sk-ant-|sk-[A-Za-z0-9]{32,}|gh[pousr]_|AKIA[0-9A-Z]{16}|PRIVATE KEY' $(git rev-list --all)
+```
+
+- **含まれていない** → `git rm --cached` で追跡を外し、`.gitignore` に追加すれば十分です。履歴に残るのは無害な文書だけです
+- **含まれている** → **鍵を再発行してください。**これが最優先です。履歴の書き換えは二次的な作業で、鍵が生きている限り意味がありません
+
+### pre-commit フックは何をしますか？
+
+コミット前に、ステージした**追加行のみ**を検査します。
+
+- `.env` ファイル本体の混入
+- Anthropic / OpenAI / GitHub / AWS / Fly のトークン形式
+- 秘密鍵（`-----BEGIN ... PRIVATE KEY-----`）
+
+`gitleaks` がインストールされていればそちらに委譲し、無ければ内蔵のパターン検査にフォールバックします。`KEY=...`、`${{ secrets.* }}`、`<your-token>`、`$MY_SECRET` のようなプレースホルダは誤検知しません。
+
+誤検知でどうしても通したいときは `git commit --no-verify` です。
+
+### クローンした人もフックは有効になりますか？
+
+**なりません。** git はセキュリティ上、フックの設定を自動では引き継ぎません。クローン後に1回だけ実行が必要です。
+
+```sh
+git config core.hooksPath .githooks
+```
+
+生成される `CLAUDE.md` にこの手順が書かれるので、Claude Code が読んで案内してくれます。
+
+---
+
 ## Windows
 
 ### Windows でも使えますか？
@@ -157,6 +209,10 @@ PowerShell 5.1 の出力エンコーディングが原因です。**PowerShell 7
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install\install.ps1
 ```
+
+### pre-commit フックは Windows でも動きますか？
+
+動きます。`#!/bin/bash` のシェルスクリプトですが、**Git for Windows に bash が同梱**されているためです。PowerShell 版は不要です。
 
 ### Git Bash を使っています
 

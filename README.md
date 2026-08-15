@@ -72,13 +72,26 @@ cd C:\path\to\your-project
 & C:\path\to\llm-wiki\install\install.ps1 -Connect .
 ```
 
-`docs/raw/` と `docs/wiki/` を作り、vault の `mounts/` から繋ぎ、`CLAUDE.md` を配置します。そのあと Claude Code で:
+`--connect` が行うこと:
+
+| 対象 | 内容 |
+|---|---|
+| `docs/raw/` `docs/wiki/` | 作成し、vault の `mounts/` から繋ぐ |
+| `CLAUDE.md` | 配置（無い場合のみ） |
+| `.gitignore` | `docs/raw/*` を追加（`README.md` のみ追跡） |
+| `.githooks/pre-commit` | 秘密情報の検査フックを配置し、`core.hooksPath` を設定 |
+
+> このリポジトリ自身を接続した場合だけ、フックは複製されません。`githooks/` が実体なので `core.hooksPath` はそちらを指します（同じファイルを2箇所で保守しないため）。
+
+そのあと Claude Code で:
 
 ```
 /llm-wiki ingest README.md
 ```
 
 最後に git 追跡へ加えてください。`git diff docs/wiki` での差分レビューが運用の要になります。
+
+> **生資料（`docs/raw/`）は追跡しません。** 加工前のセッション記録や議事録には API キーや個人情報が混ざりやすく、一度コミットすると履歴から消せないためです。要約された `docs/wiki/` 側は追跡し、レビュー対象にします。詳細は [FAQ](docs/06-faq.md#git-と公開範囲) を参照してください。
 
 **いきなり全プロジェクトに入れないでください。** まず1つで2週間ほど回し、`~/wiki/SCHEMA.md` を自分に合わせて直すのが確実です。
 
@@ -124,10 +137,15 @@ llm-wiki/
 │   └── CLAUDE.md.example  プロジェクトに置く CLAUDE.md の雛形
 ├── skill/        ~/.claude/skills/llm-wiki/ に配置（/llm-wiki コマンド）
 ├── rules/        ~/.claude/rules/ に配置（path-scoped rule）
-├── hooks/        ~/.claude/hooks/ に配置（.sh = mac/Linux, .ps1 = Windows）
+├── hooks/        ~/.claude/hooks/ に配置（Claude Code の SessionStart フック）
+│                 .sh = mac/Linux, .ps1 = Windows
+├── githooks/     接続したプロジェクトの .githooks/ に配置（git の pre-commit フック）
+│                 秘密情報の混入をコミット前に止める。全 OS 共通
 ├── install/      インストーラ
 └── docs/         入門から運用までのドキュメント
 ```
+
+`hooks/` と `githooks/` は別物です。前者は **Claude Code** のライフサイクルフック（セッション開始時に Wiki を注入）、後者は **git** のフック（コミット前に秘密情報を検査）です。
 
 ---
 
