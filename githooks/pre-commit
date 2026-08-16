@@ -1,12 +1,23 @@
 #!/bin/bash
-# 秘密情報の混入をコミット前に止める。
+# 秘密情報の混入をコミット前に止める（Git クライアント側フック）。
 #
 # 有効化（クローン後に1回だけ）:
-#   git config core.hooksPath .githooks
+#   git config core.hooksPath .githooks      # 接続先プロジェクト
+#   git config core.hooksPath githooks       # このリポジトリ（配布元）
+#
+# 検出パターンは secret-patterns.txt に定義する。SVN 側の svnhooks/pre-commit と
+# 同じ定義を共有するため、このスクリプトにパターンを直接書かないこと。
 #
 # gitleaks があればそれを使い、無ければ内蔵のパターン検査にフォールバックする。
 # 誤検知でどうしても通したいときは git commit --no-verify。
 set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# 配置後（.githooks/ に複製された状態）と、このリポジトリ内の両方に対応する
+for c in "$HERE/secret-patterns.txt" "$HERE/../lib/secret-patterns.txt"; do
+  [ -f "$c" ] && PATTERNS="$c" && break
+done
 
 fail() {
   echo ""
@@ -37,30 +48,27 @@ if command -v gitleaks >/dev/null 2>&1; then
 fi
 
 # --- 3. フォールバック: ステージ内容のパターン検査 ----------------------
+if [ -z "${PATTERNS:-}" ]; then
+  echo "  警告: secret-patterns.txt が見つからないため検査をスキップしました" >&2
+  exit 0
+fi
+
 # 追加行（+ で始まる行）だけを見る。既存行の再検出を避けるため。
 added=$(git diff --cached --unified=0 --diff-filter=ACM | grep '^+' | grep -v '^+++' || true)
 [ -n "$added" ] || exit 0
 
-# 値が実際に入っているものだけを検出する。プレースホルダ（sk-ant-...、<KEY>、
-# ${VAR}、***、xxx 等）や `KEY=` の空代入は通す。
-patterns=(
-  'sk-ant-[A-Za-z0-9_-]{20,}'                          # Anthropic
-  'sk-[A-Za-z0-9]{32,}'                                # OpenAI 系
-  '(gh[pousr]|github_pat)_[A-Za-z0-9_]{20,}'           # GitHub
-  'AKIA[0-9A-Z]{16}'                                   # AWS
-  'FlyV1 [A-Za-z0-9_+/=-]{20,}'                        # Fly.io デプロイトークン
-  '-----BEGIN [A-Z ]*PRIVATE KEY-----'                 # 秘密鍵
-  '(API_KEY|APIKEY|SECRET|TOKEN|PASSWORD)[A-Z_]*[=:][[:space:]]*["'"'"']?[A-Za-z0-9_/+.=-]{16,}'
-)
+# `!` 行を除外パターンとして 1本の ERE にまとめる
+allow=$(grep '^!' "$PATTERNS" | sed 's/^!//' | paste -sd '|' -)
 
 hits=""
-for p in "${patterns[@]}"; do
+while IFS= read -r p; do
+  case "$p" in ''|'#'*|'!'*) continue ;; esac
   # -e で渡す。`-----BEGIN ...` のようにハイフンで始まるパターンを
   # grep がオプションと誤認するのを防ぐため。
-  m=$(echo "$added" | grep -nEi -e "$p" \
-      | grep -vEi '(\.\.\.|<[A-Za-z_]+>|\$\{|\$[A-Z_]+|\*\*\*|xxx+|your[-_]|example|placeholder|redacted|secrets\.)' || true)
+  m=$(echo "$added" | grep -nEi -e "$p" || true)
+  [ -n "$m" ] && [ -n "$allow" ] && m=$(echo "$m" | grep -vEi -e "$allow" || true)
   [ -n "$m" ] && hits="${hits}${m}"$'\n'
-done
+done < "$PATTERNS"
 
 if [ -n "$hits" ]; then
   echo "  検出: 秘密情報らしき文字列（値の一部のみ表示）"

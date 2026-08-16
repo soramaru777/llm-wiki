@@ -57,5 +57,21 @@ description: LLM Wiki（Karpathy パターン）の ingest / query / lint を実
 ## 共通ルール
 
 - API キー・トークン・パスワードを Wiki に書かない。「`.env` に設定済み」とだけ書く
-- git 未追跡のファイル（`docs/local/` など）の内容を Wiki に複製しない。参照先として名前を挙げるに留める
-- 破壊的な整理をする前に git commit で退避する
+- 追跡対象外のファイル（`docs/raw/` `docs/local/` など）の内容を Wiki に複製しない。参照先として名前を挙げるに留める
+- 破壊的な整理をする前にコミットして退避する
+
+## バージョン管理（Git / SVN）
+
+ingest の直後は必ず差分をレビューさせる。**訂正の妥当性・確度の格付け・機密の混入**の3点を見る。
+
+```sh
+llm-wiki-diff          # VCS を判定して差分を出す。無ければ下を直接使う
+git diff docs/wiki     # Git
+svn diff docs/wiki     # SVN
+```
+
+SVN の作業コピー（`.svn` がある）では次の点が Git と異なる。
+
+- **PR が無い。** 書き込みのゲートはサーバ側の pre-commit フックが担う
+- **未追跡ファイルが `svn diff` に出ない。** 新規ページを作ったら `svn add` の漏れを `svn status` で確認する
+- **履歴からの削除が困難。** 秘密情報の混入は Git 以上に避ける

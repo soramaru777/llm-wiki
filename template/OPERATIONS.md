@@ -10,7 +10,7 @@
 |---|---|---|
 | 作業を始めるとき | `/llm-wiki query 今の状況と次にやることは？` | 10秒 |
 | 作業の区切り | `/llm-wiki ingest 今日の作業内容` | 5〜10分 |
-| ingest の直後 | `git diff docs/wiki` で差分レビュー | 5分 |
+| ingest の直後 | `llm-wiki-diff` で差分レビュー | 5分 |
 | 週1回（金曜など） | `/llm-wiki lint` → 裁定 | 15〜30分 |
 
 **人間の負荷は週30〜60分。** これを払えないなら、入れるソースを絞るか導入を見送る。
@@ -61,7 +61,14 @@
 ## 4. ingest の直後 — 差分レビュー（最重要）
 
 ```sh
-git diff docs/wiki
+llm-wiki-diff            # VCS を判定して差分を出す（Git / SVN 両対応）
+```
+
+直接実行してもよい。
+
+```sh
+git diff docs/wiki       # Git
+svn diff docs/wiki       # SVN
 ```
 
 **見るのは3点だけ。**
@@ -122,13 +129,27 @@ ln -sfn ~/development/<project>/docs/wiki ~/wiki/mounts/<project>
 そのあと README を ingest して
 ```
 
-最後に git 追跡へ加える。**`git diff docs/wiki` でのレビュー手順が回らなくなるため、追跡は必須。**
+最後にバージョン管理へ加える。**差分レビューの手順が回らなくなるため、追跡は必須。**
+
+**Git の場合**
 
 ```sh
-echo "docs/local/" >> .gitignore   # ローカル専用メモがある場合
-git add .gitignore docs/raw docs/wiki CLAUDE.md
+git add .gitignore .githooks docs/wiki docs/raw/README.md CLAUDE.md
 git commit -m "LLM Wiki を導入"
 ```
+
+**SVN の場合**
+
+`svn:ignore` は未追跡ファイルを `svn add` の候補から外すだけで強制力がない。生資料の混入を確実に止めるには、**サーバ側の pre-commit フック**を設置する（要管理者権限）。
+
+```sh
+svn propset svn:ignore '*'     docs/raw
+svn propset svn:ignore 'local' docs
+svn add docs/raw/README.md docs/wiki CLAUDE.md
+svn commit -m "LLM Wiki を導入"
+```
+
+SVN には PR が無いため、**書き込みのゲートはサーバ側フックが担う**。`docs/wiki/` を ingest 担当者のみに限定する設定がフックに用意されている（既定は無効）。
 
 ### 接続する価値がある対象
 

@@ -45,9 +45,11 @@ if ($Connect) {
   Write-Ok "$ProjName を接続しました"
   Write-Info "docs\raw\ と docs\wiki\ を作成し、$mount から繋ぎました（ジャンクション）"
 
-  # --- git リポジトリなら安全策も入れる ---------------------------------
+  # --- VCS を検出して安全策を入れる -------------------------------------
+  # Git / SVN のどちらでも、両方が入った作業コピーでも動く。
   $isGit = $false
   try { git -C $ProjDir rev-parse --git-dir *> $null; $isGit = ($LASTEXITCODE -eq 0) } catch { $isGit = $false }
+  $isSvn = Test-Path (Join-Path $ProjDir '.svn')
 
   # 配布元リポジトリ自身を接続した場合、githooks\ が実体なので複製しない。
   # 複製すると同じフックを2箇所で保守することになり、片方だけ古くなる。
@@ -64,25 +66,27 @@ if ($Connect) {
     if ($ignoreText -notmatch [regex]::Escape('docs/raw/*')) {
       $block = @'
 
-# 生資料は追跡しない。加工前のセッション記録・議事録には API キーや個人情報が
-# 混ざりやすく、一度コミットすると履歴から消せないため。
+# 生資料とローカルメモは追跡しない。加工前のセッション記録・議事録には
+# API キーや個人情報が混ざりやすく、一度コミットすると履歴から消せないため。
 # 置き場のルール(README)だけ共有し、中身はローカルに留める。
 docs/raw/*
 !docs/raw/README.md
+docs/local/
 '@
       Add-Content -Path $ignorePath -Value $block -Encoding UTF8
-      Write-Ok "docs/raw/ を .gitignore に追加しました（README のみ追跡）"
+      Write-Ok "docs/raw/ と docs/local/ を .gitignore に追加しました（README のみ追跡）"
     } else {
       Write-Info "docs/raw/ は既に .gitignore 済みです"
     }
 
-    # 秘密情報の pre-commit 検査
+    # 秘密情報の pre-commit 検査。パターン定義も一緒に置く。
     # フックは bash スクリプトだが、Git for Windows に bash が同梱されるため動作する
     if ($isSelf) {
       Write-Info "配布元リポジトリ自身のため githooks\ をそのまま使います（複製しません）"
     } else {
       New-Item -ItemType Directory -Force -Path "$ProjDir\.githooks" | Out-Null
-      Copy-Item "$Repo\githooks\pre-commit" "$ProjDir\.githooks\pre-commit" -Force
+      Copy-Item "$Repo\githooks\pre-commit"     "$ProjDir\.githooks\pre-commit" -Force
+      Copy-Item "$Repo\lib\secret-patterns.txt" "$ProjDir\.githooks\secret-patterns.txt" -Force
     }
 
     $currentHooks = (git -C $ProjDir config --local core.hooksPath 2>$null)
@@ -96,15 +100,70 @@ docs/raw/*
       Write-Info "  $hooksDir\pre-commit は配置済みです。既存の設定を壊さないため自動では切り替えません"
       Write-Info "  有効化する場合: git -C `"$ProjDir`" config core.hooksPath $hooksDir"
     }
-  } else {
-    Write-Warn "git リポジトリではないため、.gitignore とフックの設定はスキップしました"
+  }
+
+  # ---- SVN ----
+  if ($isSvn) {
+    Write-Host ""
+    Write-Info "SVN 作業コピーを検出しました"
+
+    # svn:ignore は親ディレクトリに対して子のパターンを設定する。
+    # 明示的に追加済みのファイル(README.md)は ignore に関係なく追跡され続ける。
+    function Set-SvnIgnore {
+      param($Target, $Pattern, $Label)
+      if (-not (Test-Path $Target)) { return }
+      $cur = (svn propget svn:ignore $Target 2>$null) -join "`n"
+      if (($cur -split "`n") -contains $Pattern) {
+        Write-Info "  svn:ignore は設定済みです（$Label → $Pattern）"
+        return
+      }
+      $new = (@($cur -split "`n") + $Pattern | Where-Object { $_ -ne '' }) -join "`n"
+      $tmp = [System.IO.Path]::GetTempFileName()
+      Set-Content -Path $tmp -Value $new -Encoding UTF8 -NoNewline
+      svn propset svn:ignore -F $tmp $Target *> $null
+      if ($LASTEXITCODE -eq 0) {
+        Write-Ok "  svn:ignore を設定しました（$Label → $Pattern）"
+      } else {
+        Write-Warn "  svn:ignore を設定できませんでした（$Label が未追跡の可能性）"
+        Write-Info "    手動で: svn add --depth=empty $Label; svn propset svn:ignore '$Pattern' $Label"
+      }
+      Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    }
+    Set-SvnIgnore "$ProjDir\docs\raw" '*'     'docs/raw'
+    Set-SvnIgnore "$ProjDir\docs"     'local' 'docs'
+
+    # SVN のフックはサーバ側にあるため、作業コピーからは設置できない。
+    # 配置物と手順を出力するに留める。
+    $reposUrl = (svn info --show-item repos-root-url $ProjDir 2>$null)
+    if ([string]::IsNullOrWhiteSpace($reposUrl)) { $reposUrl = '<repos>' }
+
+    Write-Host ""
+    Write-Warn "SVN のフックはサーバ側に設置します（要管理者権限）"
+    Write-Info "  対象リポジトリ: $reposUrl"
+    Write-Info ""
+    Write-Info "  サーバ上で以下を実行してください:"
+    Write-Info "    cp $Repo/svnhooks/pre-commit      <repos>/hooks/pre-commit"
+    Write-Info "    cp $Repo/lib/secret-patterns.txt  <repos>/hooks/secret-patterns.txt"
+    Write-Info "    chmod +x                          <repos>/hooks/pre-commit"
+    Write-Info ""
+    Write-Info "  設置すると次が有効になります:"
+    Write-Info "    - docs/raw/ と docs/local/ のコミットを拒否"
+    Write-Info "    - .env の混入を拒否"
+    Write-Info "    - 秘密情報のパターン検査"
+    Write-Info "    - docs/wiki/ のコミット者制限（既定は無効。フック内のコメント参照）"
+    Write-Info ""
+    Write-Info "  SVN には PR が無いため、書き込みのゲートはこのフックが担います。"
+  }
+
+  if (-not $isGit -and -not $isSvn) {
+    Write-Warn "git リポジトリでも SVN 作業コピーでもないため、除外設定とフックはスキップしました"
   }
 
   Write-Host ""
   Write-Info "次の手順:"
   Write-Info "  1. Claude Code で /llm-wiki ingest README.md"
-  Write-Info "  2. git add .gitignore $hooksDir docs/wiki docs/raw/README.md CLAUDE.md"
-  Write-Info "  3. git commit -m `"LLM Wiki を導入`""
+  Write-Info "  2. 差分レビュー:  bash $Repo/bin/llm-wiki-diff"
+  Write-Info "  3. コミット（Git なら .gitignore と $hooksDir も一緒に）"
   exit 0
 }
 

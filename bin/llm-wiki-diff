@@ -1,0 +1,47 @@
+#!/bin/bash
+# ingest 直後の差分レビュー用。VCS を判定して差分を表示する。
+#
+#   llm-wiki-diff              docs/wiki の差分
+#   llm-wiki-diff docs/wiki docs/raw/README.md
+#
+# Git / SVN のどちらでも、両方が入った作業コピーでも動く。
+# 見るのは3点だけ:
+#   1. 訂正は妥当か   2. 確度の表記は正しいか   3. 機密が混ざっていないか
+set -uo pipefail
+
+paths=("$@")
+[ ${#paths[@]} -eq 0 ] && paths=("docs/wiki")
+
+found=0
+
+if [ -d .git ] || git rev-parse --git-dir >/dev/null 2>&1; then
+  found=1
+  echo "=== git diff ${paths[*]} ==="
+  git diff -- "${paths[@]}"
+  # ステージ済みの変更も見落とさない
+  staged=$(git diff --cached --name-only -- "${paths[@]}" 2>/dev/null || true)
+  if [ -n "$staged" ]; then
+    echo
+    echo "=== git diff --cached ${paths[*]} ==="
+    git diff --cached -- "${paths[@]}"
+  fi
+fi
+
+if [ -d .svn ]; then
+  found=1
+  [ "$found" = 1 ] && echo
+  echo "=== svn diff ${paths[*]} ==="
+  svn diff "${paths[@]}"
+  # SVN は未追跡ファイルが diff に出ないため、追加漏れを別途知らせる
+  unversioned=$(svn status "${paths[@]}" 2>/dev/null | grep '^?' || true)
+  if [ -n "$unversioned" ]; then
+    echo
+    echo "--- 未追跡（svn add されていない）---"
+    echo "$unversioned" | sed 's/^/  /'
+  fi
+fi
+
+if [ "$found" = 0 ]; then
+  echo "git リポジトリでも SVN 作業コピーでもありません。差分を表示できません。" >&2
+  exit 1
+fi
