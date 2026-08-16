@@ -12,3 +12,7 @@ Thumbs.db
 # 置き場のルール(README)だけ共有し、中身はローカルに留める。
 docs/raw/*
 !docs/raw/README.md
+
+# ローカル専用の作業メモ・検討中の下書き。リポジトリでは管理しない。
+# 共有する段階になったら docs/raw/ へ移して ingest するか、docs/wiki/ に整理する。
+docs/local/
