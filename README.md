@@ -78,8 +78,11 @@ cd C:\path\to\your-project
 |---|---|
 | `docs/raw/` `docs/wiki/` | 作成し、vault の `mounts/` から繋ぐ |
 | `CLAUDE.md` | 配置（無い場合のみ） |
-| `.gitignore` | `docs/raw/*` を追加（`README.md` のみ追跡） |
-| `.githooks/pre-commit` | 秘密情報の検査フックを配置し、`core.hooksPath` を設定 |
+| `.gitignore` / `svn:ignore` | 生資料とローカルメモを除外（`docs/raw/README.md` のみ追跡） |
+| `.githooks/pre-commit` | 秘密情報の検査フックを配置し、`core.hooksPath` を設定（Git） |
+| SVN フックの案内 | サーバ側に設置する手順を出力（作業コピーからは設置できないため） |
+
+**Git / SVN のどちらでも動きます。**`.git` と `.svn` の両方を調べ、あるものすべてに設定を入れるので、プロジェクトごとに VCS が違う混在環境でも、1つの作業コピーが両方でも構いません。SVN 固有の扱いは [FAQ](docs/06-faq.md) を参照してください。
 
 > このリポジトリ自身を接続した場合だけ、フックは複製されません。`githooks/` が実体なので `core.hooksPath` はそちらを指します（同じファイルを2箇所で保守しないため）。
 
@@ -141,6 +144,11 @@ llm-wiki/
 │                 .sh = mac/Linux, .ps1 = Windows
 ├── githooks/     接続したプロジェクトの .githooks/ に配置（git の pre-commit フック）
 │                 秘密情報の混入をコミット前に止める。全 OS 共通
+├── svnhooks/     SVN サーバの hooks/ に配置（要管理者権限）
+│                 秘密情報に加え、生資料のコミットと .env の混入を拒否する
+├── lib/          secret-patterns.txt — 検出パターンの単一定義
+│                 githooks と svnhooks が共有する。二重管理しない
+├── bin/          llm-wiki-diff — VCS を判定して差分を出す（レビュー用）
 ├── install/      インストーラ
 └── docs/         入門から運用までのドキュメント
 ```

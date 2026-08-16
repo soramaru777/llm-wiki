@@ -1,0 +1,107 @@
+#!/bin/bash
+# 秘密情報の混入と生資料のコミットを止める（SVN サーバ側フック）。
+#
+# 設置（SVN サーバ上、要管理者権限）:
+#   cp pre-commit          <repos>/hooks/pre-commit
+#   cp secret-patterns.txt <repos>/hooks/secret-patterns.txt
+#   chmod +x               <repos>/hooks/pre-commit
+#
+# SVN のフックは環境変数がほぼ空の状態で実行される。PATH は下で明示している。
+# 標準エラー出力に書いた内容がコミット者の画面に表示され、exit 1 で拒否される。
+#
+# Git 側の githooks/pre-commit と検出パターンを共有する。
+# このスクリプトにパターンを直接書かないこと。
+set -uo pipefail
+
+export PATH=/usr/local/bin:/usr/bin:/bin
+export LANG=C.UTF-8
+
+REPOS="$1"
+TXN="$2"
+
+HERE="$(cd "$(dirname "$0")" && pwd)"
+for c in "$HERE/secret-patterns.txt" "$HERE/../lib/secret-patterns.txt"; do
+  [ -f "$c" ] && PATTERNS="$c" && break
+done
+
+deny() {
+  echo "" >&2
+  echo "コミットを拒否しました: $1" >&2
+  echo "" >&2
+  shift
+  for line in "$@"; do echo "  $line" >&2; done
+  echo "" >&2
+  exit 1
+}
+
+changed=$(svnlook changed -t "$TXN" "$REPOS")
+
+# --- 1. 生資料とローカルメモのコミットを拒否 ----------------------------
+# svn:ignore は未追跡ファイルを add の候補から外すだけで強制力が無い。
+# `svn add --force` で入るため、ここで確実に止める。
+if echo "$changed" | grep -qE '[[:space:]](.*/)?docs/raw/' \
+   && ! echo "$changed" | grep -qE '[[:space:]](.*/)?docs/raw/README\.md$'; then
+  deny "docs/raw/ は追跡対象外です" \
+       "生資料には API キーや個人情報が混ざりやすく、一度コミットすると履歴から消せません。" \
+       "要約された知識は docs/wiki/ に入れてください。" \
+       "追跡してよいのは docs/raw/README.md だけです。"
+fi
+
+if echo "$changed" | grep -qE '[[:space:]](.*/)?docs/local/'; then
+  deny "docs/local/ は追跡対象外です" \
+       "ローカル専用の作業メモです。共有する段階になったら docs/wiki/ に整理してください。"
+fi
+
+# --- 2. .env ファイルの混入を拒否 ---------------------------------------
+if echo "$changed" | grep -qE '[[:space:]](.*/)?\.env($|\.)' \
+   && ! echo "$changed" | grep -qE '[[:space:]](.*/)?\.env\.example$'; then
+  deny ".env はコミットできません" \
+       "認証情報はリポジトリに入れず、サーバの環境変数や設定で渡してください。"
+fi
+
+# --- 3. 秘密情報のパターン検査 ------------------------------------------
+if [ -n "${PATTERNS:-}" ]; then
+  added=$(svnlook diff -t "$TXN" "$REPOS" 2>/dev/null | grep '^+' | grep -v '^+++' || true)
+
+  if [ -n "$added" ]; then
+    allow=$(grep '^!' "$PATTERNS" | sed 's/^!//' | paste -sd '|' -)
+    hits=""
+
+    while IFS= read -r p; do
+      case "$p" in ''|'#'*|'!'*) continue ;; esac
+      m=$(echo "$added" | grep -nEi -e "$p" || true)
+      [ -n "$m" ] && [ -n "$allow" ] && m=$(echo "$m" | grep -vEi -e "$allow" || true)
+      [ -n "$m" ] && hits="${hits}${m}"$'\n'
+    done < "$PATTERNS"
+
+    if [ -n "$hits" ]; then
+      echo "" >&2
+      echo "秘密情報らしき文字列が含まれています（値の一部のみ表示）:" >&2
+      echo "$hits" | sed 's/\(.\{80\}\).*/\1…/' | sed 's/^/  /' | head -10 >&2
+      deny "秘密情報らしき文字列" \
+           "該当箇所を削除するか、値を <REDACTED> などに置き換えてください。" \
+           "実際に漏れた鍵は必ず再発行してください。"
+    fi
+  fi
+else
+  echo "警告: secret-patterns.txt が見つからないため秘密情報の検査をスキップしました" >&2
+fi
+
+# --- 4. docs/wiki/ のコミット者制限（既定では無効）----------------------
+#
+# SVN には PR が無いため、「AI の書き込みを1人の目に通す」を機械的に強制する
+# 唯一の手段がこれになる。チーム運用に影響するため既定では無効にしてある。
+# 有効にする場合は下のコメントを外し、AUTHORS に ingest 担当者を列挙すること。
+#
+# AUTHORS="ingest-owner ci-bot"
+# author=$(svnlook author -t "$TXN" "$REPOS")
+# if echo "$changed" | grep -qE '[[:space:]](.*/)?docs/wiki/'; then
+#   case " $AUTHORS " in
+#     *" $author "*) ;;
+#     *) deny "docs/wiki/ を更新できるのは ingest 担当者のみです" \
+#             "資料は docs/raw/ に置き、取り込みは担当者に依頼してください。" \
+#             "担当者: $AUTHORS" ;;
+#   esac
+# fi
+
+exit 0
