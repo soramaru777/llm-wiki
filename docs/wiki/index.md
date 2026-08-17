@@ -6,9 +6,9 @@ scope: shared
 sources:
   - CLAUDE.md
   - README.md
-related: [[llm-wiki-powershell-encoding]] [[llm-wiki-branch-flow]] [[llm-wiki-secret-hygiene]] [[llm-wiki-hook-distribution]] [[llm-wiki-history-rewrite]]
+related: [[llm-wiki-powershell-encoding]] [[llm-wiki-branch-flow]] [[llm-wiki-secret-hygiene]] [[llm-wiki-hook-distribution]] [[llm-wiki-history-rewrite]] [[llm-wiki-hook-determinism]]
 confidence: high
-updated: 2026-08-15
+updated: 2026-08-18
 ---
 
 このリポジトリの Wiki のエントリポイント。**作業を始める前にここを読む。** ページを追加したら必ず1行足すこと。
@@ -24,6 +24,7 @@ llm-wiki は Karpathy の LLM Wiki パターンを Claude Code に導入する�
 | [[llm-wiki-secret-hygiene]] | decision | `docs/raw/` を追跡しない理由と、pre-commit による秘密情報の検査 |
 | [[llm-wiki-hook-distribution]] | decision | `hooks/` と `githooks/` の違い、自己接続時にフックを複製しない判断 |
 | [[llm-wiki-history-rewrite]] | howto | 保護ブランチ下で履歴を書き換える手順（ruleset の一時無効化と復旧） |
+| [[llm-wiki-hook-determinism]] | decision | フック出力は指示として効く。促しは日数と絶対パスで変わるため `LLM_WIKI_REPLAY=1` で止める |
 
 ## 構成
 

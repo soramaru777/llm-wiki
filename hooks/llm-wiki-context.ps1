@@ -22,6 +22,13 @@ Write-Output 'ページの規約は ~/wiki/SCHEMA.md、運用手順は ~/wiki/OP
 # --- 取り込みの促し -----------------------------------------------------
 # 毎回促すと無視されるようになるため、溜まったときだけ出す。
 # 閾値は環境変数で変更できる。
+#
+# ここから下は「経過日数」と「絶対パス」で出力が変わる。Wiki の内容が1バイトも
+# 変わらなくても、7日跨いだだけで注入される文字列が変わってしまう。
+# 同一条件の再実行（Replay）でこれが起きると、比較したい差分以外のところで
+# 指示が食い違い、結果を比較できなくなる。Replay 中は出さない。
+if ($env:LLM_WIKI_REPLAY -eq '1') { exit 0 }
+
 $threshold = if ($env:LLM_WIKI_PENDING_THRESHOLD) { [int]$env:LLM_WIKI_PENDING_THRESHOLD } else { 5 }
 $staleDays = if ($env:LLM_WIKI_STALE_DAYS)        { [int]$env:LLM_WIKI_STALE_DAYS }        else { 7 }
 
