@@ -27,6 +27,7 @@ description: LLM Wiki（Karpathy パターン）の ingest / query / lint を実
 6. `[[wikilink]]` で関連ページを相互に結ぶ。**片方向で終わらせない**
 7. `index.md` に行を追加し、`log.md` に `YYYY-MM-DD ingest — 要約` を追記する
 8. 他プロジェクトでも通用する知見は `~/wiki/knowledge/` に切り出し、プロジェクト側からリンクする
+9. **`docs/raw/.pending-sessions` があれば空にする**（未取り込みの記録。残すと促しが止まらない）
 
 **1ソースで複数ページに波及するのが正常。** 1ページしか触っていないなら取り込みが浅い。
 

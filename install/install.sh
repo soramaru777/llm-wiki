@@ -110,13 +110,17 @@ ok "vault を作成しました"
 
 cp "$REPO/skill/SKILL.md"  "$CLAUDE_DIR/skills/llm-wiki/SKILL.md"
 cp "$REPO/rules/llm-wiki.md" "$CLAUDE_DIR/rules/llm-wiki.md"
-cp "$REPO/hooks/llm-wiki-context.sh" "$CLAUDE_DIR/hooks/llm-wiki-context.sh"
-chmod +x "$CLAUDE_DIR/hooks/llm-wiki-context.sh"
+cp "$REPO/hooks/llm-wiki-context.sh"     "$CLAUDE_DIR/hooks/llm-wiki-context.sh"
+cp "$REPO/hooks/llm-wiki-session-end.sh" "$CLAUDE_DIR/hooks/llm-wiki-session-end.sh"
+chmod +x "$CLAUDE_DIR/hooks/llm-wiki-context.sh" "$CLAUDE_DIR/hooks/llm-wiki-session-end.sh"
 ok "スキル・ルール・フックを配置しました"
 
-# --- settings.json への SessionStart フック追加 -------------------------
+# --- settings.json へのフック追加 ---------------------------------------
+# SessionStart: Wiki の注入と取り込みの促し
+# SessionEnd:   未取り込みの記録（resume は「後で再開」なので対象外）
 SETTINGS="$CLAUDE_DIR/settings.json"
-HOOK_CMD='bash ~/.claude/hooks/llm-wiki-context.sh'
+START_CMD='bash ~/.claude/hooks/llm-wiki-context.sh'
+END_CMD='bash ~/.claude/hooks/llm-wiki-session-end.sh'
 
 if ! command -v jq >/dev/null 2>&1; then
   warn "jq が無いため settings.json は自動更新しません。以下を手動で追加してください:"
@@ -130,19 +134,43 @@ if ! command -v jq >/dev/null 2>&1; then
           { "type": "command", "command": "bash ~/.claude/hooks/llm-wiki-context.sh", "timeout": 10 }
         ]
       }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "clear|logout|prompt_input_exit|other",
+        "hooks": [
+          { "type": "command", "command": "bash ~/.claude/hooks/llm-wiki-session-end.sh", "timeout": 10 }
+        ]
+      }
     ]
   }
 JSON
-elif [ -f "$SETTINGS" ] && jq -e --arg c "$HOOK_CMD" '.hooks.SessionStart[]?.hooks[]? | select(.command == $c)' "$SETTINGS" >/dev/null 2>&1; then
-  info "SessionStart フックは既に設定済みです"
 else
   [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
   cp "$SETTINGS" "$SETTINGS.bak"
-  jq '.hooks.SessionStart = ((.hooks.SessionStart // []) + [{
-        matcher: "startup|resume|clear|compact",
-        hooks: [{ type: "command", command: "bash ~/.claude/hooks/llm-wiki-context.sh", timeout: 10, statusMessage: "LLM Wiki を読み込み中" }]
-      }])' "$SETTINGS.bak" > "$SETTINGS"
-  ok "SessionStart フックを追加しました（バックアップ: $SETTINGS.bak）"
+
+  if jq -e --arg c "$START_CMD" '.hooks.SessionStart[]?.hooks[]? | select(.command == $c)' "$SETTINGS" >/dev/null 2>&1; then
+    info "SessionStart フックは既に設定済みです"
+  else
+    jq --arg c "$START_CMD" '.hooks.SessionStart = ((.hooks.SessionStart // []) + [{
+          matcher: "startup|resume|clear|compact",
+          hooks: [{ type: "command", command: $c, timeout: 10, statusMessage: "LLM Wiki を読み込み中" }]
+        }])' "$SETTINGS.bak" > "$SETTINGS"
+    cp "$SETTINGS" "$SETTINGS.bak"
+    ok "SessionStart フックを追加しました"
+  fi
+
+  if jq -e --arg c "$END_CMD" '.hooks.SessionEnd[]?.hooks[]? | select(.command == $c)' "$SETTINGS" >/dev/null 2>&1; then
+    info "SessionEnd フックは既に設定済みです"
+  else
+    jq --arg c "$END_CMD" '.hooks.SessionEnd = ((.hooks.SessionEnd // []) + [{
+          matcher: "clear|logout|prompt_input_exit|other",
+          hooks: [{ type: "command", command: $c, timeout: 10 }]
+        }])' "$SETTINGS.bak" > "$SETTINGS"
+    ok "SessionEnd フックを追加しました"
+  fi
+
+  info "バックアップ: $SETTINGS.bak"
 fi
 
 echo
