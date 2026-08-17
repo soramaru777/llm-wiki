@@ -12,6 +12,10 @@ set -uo pipefail
 
 root="${CLAUDE_PROJECT_DIR:-$PWD}"
 
+# Replay は検証用の再実行であって取り込むべき作業ではない。
+# 記録すると累計が水増しされ、次回の SessionStart で注入される文字列が変わる。
+[ "${LLM_WIKI_REPLAY:-0}" = "1" ] && exit 0
+
 # 接続済みプロジェクトのみ対象
 [ -f "$root/docs/wiki/index.md" ] || exit 0
 [ -d "$root/docs/raw" ] || exit 0

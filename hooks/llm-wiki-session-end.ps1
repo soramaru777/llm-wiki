@@ -14,6 +14,10 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 $root = if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
 
+# Replay は検証用の再実行であって取り込むべき作業ではない。
+# 記録すると累計が水増しされ、次回の SessionStart で注入される文字列が変わる。
+if ($env:LLM_WIKI_REPLAY -eq '1') { exit 0 }
+
 # 接続済みプロジェクトのみ対象
 if (-not (Test-Path -LiteralPath (Join-Path $root 'docs/wiki/index.md'))) { exit 0 }
 if (-not (Test-Path -LiteralPath (Join-Path $root 'docs/raw')))           { exit 0 }
