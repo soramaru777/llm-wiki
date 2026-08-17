@@ -188,7 +188,8 @@ Write-Ok "vault を作成しました"
 
 Copy-Item "$Repo\skill\SKILL.md"                "$ClaudeDir\skills\llm-wiki\SKILL.md" -Force
 Copy-Item "$Repo\rules\llm-wiki.md"             "$ClaudeDir\rules\llm-wiki.md" -Force
-Copy-Item "$Repo\hooks\llm-wiki-context.ps1"    "$ClaudeDir\hooks\llm-wiki-context.ps1" -Force
+Copy-Item "$Repo\hooks\llm-wiki-context.ps1"     "$ClaudeDir\hooks\llm-wiki-context.ps1" -Force
+Copy-Item "$Repo\hooks\llm-wiki-session-end.ps1" "$ClaudeDir\hooks\llm-wiki-session-end.ps1" -Force
 Write-Ok "スキル・ルール・フックを配置しました"
 
 # --- settings.json への SessionStart フック追加 -------------------------
@@ -206,30 +207,41 @@ if (-not $json.PSObject.Properties['hooks']) {
   $json | Add-Member -NotePropertyName hooks -NotePropertyValue ([PSCustomObject]@{})
 }
 
-$existing = @($json.hooks.PSObject.Properties['SessionStart'].Value)
-$already  = $existing | Where-Object { $_.hooks.command -contains $HookCmd }
+# SessionStart: Wiki の注入と取り込みの促し
+# SessionEnd:   未取り込みの記録（resume は「後で再開」なので対象外）
+$EndCmd = '& "$env:USERPROFILE\.claude\hooks\llm-wiki-session-end.ps1"'
+$changed = $false
 
-if ($already) {
-  Write-Info "SessionStart フックは既に設定済みです"
-} else {
-  $entry = [PSCustomObject]@{
-    matcher = 'startup|resume|clear|compact'
-    hooks   = @([PSCustomObject]@{
-      type          = 'command'
-      command       = $HookCmd
-      shell         = 'powershell'
-      timeout       = 10
-      statusMessage = 'LLM Wiki を読み込み中'
-    })
+function Add-HookEntry {
+  param($Json, $Event, $Matcher, $Command, $StatusMessage)
+
+  $existing = @($Json.hooks.PSObject.Properties[$Event].Value)
+  if ($existing | Where-Object { $_ -and ($_.hooks.command -contains $Command) }) {
+    Write-Info "$Event フックは既に設定済みです"
+    return $false
   }
+
+  $hook = [ordered]@{ type = 'command'; command = $Command; shell = 'powershell'; timeout = 10 }
+  if ($StatusMessage) { $hook['statusMessage'] = $StatusMessage }
+
+  $entry  = [PSCustomObject]@{ matcher = $Matcher; hooks = @([PSCustomObject]$hook) }
   $merged = @($existing | Where-Object { $_ }) + $entry
-  if ($json.hooks.PSObject.Properties['SessionStart']) {
-    $json.hooks.SessionStart = $merged
+
+  if ($Json.hooks.PSObject.Properties[$Event]) {
+    $Json.hooks.$Event = $merged
   } else {
-    $json.hooks | Add-Member -NotePropertyName SessionStart -NotePropertyValue $merged
+    $Json.hooks | Add-Member -NotePropertyName $Event -NotePropertyValue $merged
   }
+  Write-Ok "$Event フックを追加しました"
+  return $true
+}
+
+if (Add-HookEntry $json 'SessionStart' 'startup|resume|clear|compact' $HookCmd 'LLM Wiki を読み込み中') { $changed = $true }
+if (Add-HookEntry $json 'SessionEnd'   'clear|logout|prompt_input_exit|other' $EndCmd $null)            { $changed = $true }
+
+if ($changed) {
   $json | ConvertTo-Json -Depth 20 | Set-Content $Settings -Encoding UTF8
-  Write-Ok "SessionStart フックを追加しました（バックアップ: $Settings.bak）"
+  Write-Info "バックアップ: $Settings.bak"
 }
 
 Write-Host ""
